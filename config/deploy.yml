@@ -1,0 +1,16 @@
+service: coachbot
+image: omarshaarawi/coachbot
+servers:
+    - 5.161.188.126
+proxy:
+  ssl: false
+registry:
+  username: omarshaarawi
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+builder:
+  arch: amd64
+ssh:
+  keys_only: true
+  keys: [ "~/.ssh/id.pem" ]
+  config: true

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -56,6 +57,14 @@ func run() error {
 	}
 	defer sched.Stop()
 
+	http.HandleFunc("/", healthCheckHandler)
+
+	go func() {
+		if err := http.ListenAndServe(":80", nil); err != nil {
+			slog.Error("Error starting HTTP server", "error", err)
+		}
+	}()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -69,4 +78,8 @@ func run() error {
 	slog.Info("Shutting down gracefully...")
 
 	return nil
+}
+
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
