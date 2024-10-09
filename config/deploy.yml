@@ -1,16 +1,33 @@
 service: coachbot
+
 image: omarshaarawi/coachbot
+
 servers:
-    - 5.161.188.126
-proxy:
-  ssl: false
+  web:
+    hosts:
+      - 5.161.188.126
+    proxy: false
+
+
+proxy: false
+
 registry:
   username: omarshaarawi
-  password:
-    - KAMAL_REGISTRY_PASSWORD
+  password: dckr_pat_SK72SlN2aF7ITqycVEmR4HQyYw4
+
 builder:
   arch: amd64
-ssh:
-  keys_only: true
-  keys: [ "~/.ssh/id.pem" ]
-  config: true
+
+env:
+  secret:
+    - ENV
+    - SWID
+    - LEAGUE_ID
+    - ESPN_S2
+    - YEAR
+    - TELEGRAM_TOKEN
+    - CHAT_ID
+    - KAMAL_REGISTRY_PASSWORD
+
+labels:
+  app: coachbot
