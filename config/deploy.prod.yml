@@ -1,29 +1,2 @@
 service: coachbot
-
 image: omarshaarawi/coachbot
-
-servers:
-  web:
-    hosts:
-      - 5.161.188.126
-    proxy: false
-
-
-proxy: false
-
-registry:
-  username: omarshaarawi
-  password: dckr_pat_SK72SlN2aF7ITqycVEmR4HQyYw4
-
-builder:
-  arch: amd64
-
-env:
-  secret:
-    - SWID
-    - LEAGUE_ID
-    - ESPN_S2
-    - YEAR
-    - TELEGRAM_TOKEN
-    - CHAT_ID
-    - KAMAL_REGISTRY_PASSWORD
