@@ -20,7 +20,6 @@ builder:
 
 env:
   secret:
-    - ENV
     - SWID
     - LEAGUE_ID
     - ESPN_S2
@@ -28,6 +27,3 @@ env:
     - TELEGRAM_TOKEN
     - CHAT_ID
     - KAMAL_REGISTRY_PASSWORD
-
-labels:
-  app: coachbot
