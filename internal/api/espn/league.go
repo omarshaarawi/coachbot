@@ -86,12 +86,11 @@ func (a *API) GetStandings() ([]models.TeamStanding, error) {
 	return standings, nil
 }
 
-func (a *API) GetCurrentScores(week int) ([]models.CurrentScore, error) {
+func (a *API) GetCurrentScores(week int) ([]models.Matchup, error) {
 	var scoreboardResponse models.ScoreboardResponse
 	endpoint := fmt.Sprintf("/seasons/%s/segments/0/leagues/%s", a.client.Config.Year, a.client.Config.LeagueID)
 	params := map[string]string{
-		"view":            "mScoreboard",
-		"scoringPeriodId": fmt.Sprintf("%d", week),
+		"view": "mScoreboard",
 	}
 
 	filters := map[string]interface{}{
@@ -115,12 +114,12 @@ func (a *API) GetCurrentScores(week int) ([]models.CurrentScore, error) {
 		return nil, fmt.Errorf("fetching current scores: %w", err)
 	}
 
-	var currentScores []models.CurrentScore
+	var matchups []models.Matchup
 	currentPeriod := week
 
 	for _, match := range scoreboardResponse.Schedule {
 		if isCurrentMatch(match, currentPeriod) {
-			currentScores = append(currentScores, models.CurrentScore{
+			matchups = append(matchups, models.Matchup{
 				MatchID:       match.ID,
 				HomeTeamID:    match.Home.TeamID,
 				AwayTeamID:    match.Away.TeamID,
@@ -130,10 +129,18 @@ func (a *API) GetCurrentScores(week int) ([]models.CurrentScore, error) {
 				AwayProjected: match.Away.TotalProjectedPointsLive,
 				IsCompleted:   match.Winner != "UNDECIDED",
 			})
+		} else {
+			matchups = append(matchups, models.Matchup{
+				MatchID:       match.ID,
+				HomeTeamID:    match.Home.TeamID,
+				AwayTeamID:    match.Away.TeamID,
+				HomeProjected: match.Home.TotalProjectedPointsLive,
+				AwayProjected: match.Away.TotalProjectedPointsLive,
+			})
 		}
 	}
 
-	return currentScores, nil
+	return matchups, nil
 }
 
 func isCurrentMatch(match models.MatchupScore, currentPeriod int) bool {

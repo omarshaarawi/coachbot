@@ -28,17 +28,6 @@ type TeamStanding struct {
 	PlayoffSeed   int
 }
 
-type CurrentScore struct {
-	MatchID       int
-	HomeTeamID    int
-	AwayTeamID    int
-	HomeScore     float64
-	AwayScore     float64
-	HomeProjected float64
-	AwayProjected float64
-	IsCompleted   bool
-}
-
 type WhoHasResult struct {
 	PlayerName   string
 	TeamName     string
@@ -67,10 +56,16 @@ type PlayersToMonitorReport struct {
 }
 
 type Matchup struct {
-	HomeTeam  string
-	AwayTeam  string
-	HomeScore float64
-	AwayScore float64
+	MatchID       int
+	HomeTeamID    int
+	AwayTeamID    int
+	HomeTeam      string
+	AwayTeam      string
+	HomeScore     float64
+	AwayScore     float64
+	HomeProjected float64
+	AwayProjected float64
+	IsCompleted   bool
 }
 
 type Trophy struct {

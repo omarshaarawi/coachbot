@@ -21,7 +21,7 @@ func (a *API) GetStandings() ([]models.TeamStanding, error) {
 	return a.espnAPI.GetStandings()
 }
 
-func (a *API) GetCurrentScores(week int) ([]models.CurrentScore, error) {
+func (a *API) GetCurrentScores(week int) ([]models.Matchup, error) {
 	return a.espnAPI.GetCurrentScores(week)
 }
 

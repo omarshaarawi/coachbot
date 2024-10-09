@@ -18,9 +18,7 @@ type TelegramBot struct {
 func NewTelegramBot(token string, chatID int64, fantasyService *service.FantasyService) (*TelegramBot, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
-        slog.Error("Error creating Telegram bot", "error", err)
-        return nil, nil
-		// return nil, err
+		return nil, err
 	}
 
 	handler := NewHandler(fantasyService)

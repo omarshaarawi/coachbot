@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"sort"
 	"strings"
@@ -26,6 +27,8 @@ func (s *FantasyService) GetCurrentWeek() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	slog.Info("Current week", "week", metadata.CurrentWeek)
 	return metadata.CurrentWeek, nil
 }
 
@@ -188,7 +191,7 @@ func (s *FantasyService) GetFinalScoreReport() (string, error) {
 	return formatFinalScoreReport(report), nil
 }
 
-func processScores(scores []models.CurrentScore) models.FinalScoreReport {
+func processScores(scores []models.Matchup) models.FinalScoreReport {
 	var report models.FinalScoreReport
 	report.Matchups = make([]models.Matchup, len(scores))
 
@@ -309,7 +312,7 @@ func (s *FantasyService) GetMondayNightCloseGames() (string, error) {
 	return formatMondayNightCloseGames(closeGames), nil
 }
 
-func findCloseGames(scores []models.CurrentScore) []models.CloseGame {
+func findCloseGames(scores []models.Matchup) []models.CloseGame {
 	var closeGames []models.CloseGame
 
 	for _, score := range scores {
@@ -364,12 +367,13 @@ func (s *FantasyService) GetMatchups() (string, error) {
 	var sb strings.Builder
 	sb.WriteString("🏈 *Matchups*\n\n")
 
+	slog.Info("Matchups", "matchups", len(currentScores))
 	for _, score := range currentScores {
 		homeTeam := getTeamName(score.HomeTeamID)
 		awayTeam := getTeamName(score.AwayTeamID)
 
 		sb.WriteString(fmt.Sprintf("*%s* %.2f - %.2f *%s*\n",
-			homeTeam, score.HomeScore, score.AwayScore, awayTeam))
+			homeTeam, score.HomeProjected, score.AwayProjected, awayTeam))
 	}
 
 	return sb.String(), nil

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/joho/godotenv"
 	"github.com/omarshaarawi/coachbot/internal/api/espn"
 	"github.com/omarshaarawi/coachbot/internal/api/fantasy"
 	"github.com/omarshaarawi/coachbot/internal/bot"
@@ -25,9 +26,9 @@ func main() {
 }
 
 func run() error {
-	// if err := godotenv.Load(); err != nil {
-	// 	slog.Error("Error loading .env file", "error", err)
-	// }
+	if err := godotenv.Load(); err != nil {
+		slog.Error("Error loading .env file", "error", err)
+	}
 
 	cfg, err := config.New()
 	if err != nil {
