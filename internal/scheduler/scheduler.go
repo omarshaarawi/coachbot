@@ -116,7 +116,13 @@ func (s *Scheduler) sendCloseScores() {
 		slog.Error("Failed to get close games", "error", err)
 		return
 	}
-	s.sendMessage(report)
+
+	slog.Info("Sending close games", "time", time.Now().Format(time.RFC3339))
+
+	err = s.sendMessage(report)
+	if err != nil {
+		slog.Error("Failed to send close games", "error", err)
+	}
 }
 
 func (s *Scheduler) sendScoreboard() {
@@ -125,7 +131,13 @@ func (s *Scheduler) sendScoreboard() {
 		slog.Error("Failed to get current scores", "error", err)
 		return
 	}
-	s.sendMessage(scores)
+
+	slog.Info("Sending scoreboard", "time", time.Now().Format(time.RFC3339))
+
+	err = s.sendMessage(scores)
+	if err != nil {
+		slog.Error("Failed to send scoreboard", "error", err)
+	}
 }
 
 func (s *Scheduler) sendTrophies() {
@@ -134,7 +146,13 @@ func (s *Scheduler) sendTrophies() {
 		slog.Error("Failed to get final score report", "error", err)
 		return
 	}
-	s.sendMessage(report)
+
+	slog.Info("Sending trophies", "time", time.Now().Format(time.RFC3339))
+
+	err = s.sendMessage(report)
+	if err != nil {
+		slog.Error("Failed to send trophies", "error", err)
+	}
 }
 
 func (s *Scheduler) sendStandings() {
@@ -143,7 +161,13 @@ func (s *Scheduler) sendStandings() {
 		slog.Error("Failed to get standings", "error", err)
 		return
 	}
-	s.sendMessage(standings)
+
+	slog.Info("Sending standings", "time", time.Now().Format(time.RFC3339))
+
+	err = s.sendMessage(standings)
+	if err != nil {
+		slog.Error("Failed to send standings", "error", err)
+	}
 }
 
 func (s *Scheduler) sendMatchups() {
@@ -152,7 +176,13 @@ func (s *Scheduler) sendMatchups() {
 		slog.Error("Failed to get matchups", "error", err)
 		return
 	}
-	s.sendMessage(matchups)
+
+	slog.Info("Sending matchups", "time", time.Now().Format(time.RFC3339))
+
+	err = s.sendMessage(matchups)
+	if err != nil {
+		slog.Error("Failed to send matchups", "error", err)
+	}
 }
 
 func (s *Scheduler) sendPlayersToMonitor() {
@@ -161,5 +191,11 @@ func (s *Scheduler) sendPlayersToMonitor() {
 		slog.Error("Failed to get players to monitor", "error", err)
 		return
 	}
-	s.sendMessage(report)
+
+	slog.Info("Sending players to monitor", "time", time.Now().Format(time.RFC3339))
+
+	err = s.sendMessage(report)
+	if err != nil {
+		slog.Error("Failed to send players to monitor", "error", err)
+	}
 }

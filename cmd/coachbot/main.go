@@ -55,7 +55,12 @@ func run() error {
 	if err := sched.Start(); err != nil {
 		return err
 	}
-	defer sched.Stop()
+	defer func() {
+		err := sched.Stop()
+		if err != nil {
+			slog.Error("Error stopping scheduler", "error", err)
+		}
+	}()
 
 	http.HandleFunc("/", healthCheckHandler)
 

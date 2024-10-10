@@ -58,11 +58,15 @@ func (t *TelegramBot) Start(ctx context.Context) error {
 
 func (t *TelegramBot) SendMessage(text string) error {
 	if t.chatID == 0 {
+		slog.Error("Chat ID not set")
 		return fmt.Errorf("chat ID not set")
 	}
 
 	msg := tgbotapi.NewMessage(t.chatID, text)
 	msg.ParseMode = "Markdown"
 	_, err := t.bot.Send(msg)
+	if err != nil {
+		slog.Error("Error sending message", "error", err)
+	}
 	return err
 }
