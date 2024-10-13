@@ -3,6 +3,7 @@ package espn
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -89,6 +90,7 @@ func (a *API) GetStandings() ([]models.TeamStanding, error) {
 func (a *API) GetCurrentScores(week int) ([]models.Matchup, error) {
 	var scoreboardResponse models.ScoreboardResponse
 	endpoint := fmt.Sprintf("/seasons/%s/segments/0/leagues/%s", a.client.Config.Year, a.client.Config.LeagueID)
+
 	params := map[string]string{
 		"view": "mScoreboard",
 	}
@@ -115,32 +117,34 @@ func (a *API) GetCurrentScores(week int) ([]models.Matchup, error) {
 	}
 
 	var matchups []models.Matchup
-	currentPeriod := week
 
 	for _, match := range scoreboardResponse.Schedule {
-		if isCurrentMatch(match, currentPeriod) {
-			matchups = append(matchups, models.Matchup{
-				MatchID:       match.ID,
-				HomeTeamID:    match.Home.TeamID,
-				AwayTeamID:    match.Away.TeamID,
-				HomeScore:     match.Home.TotalPointsLive,
-				AwayScore:     match.Away.TotalPointsLive,
-				HomeProjected: match.Home.TotalProjectedPointsLive,
-				AwayProjected: match.Away.TotalProjectedPointsLive,
-				IsCompleted:   match.Winner != "UNDECIDED",
-			})
-		} else {
-			matchups = append(matchups, models.Matchup{
-				MatchID:       match.ID,
-				HomeTeamID:    match.Home.TeamID,
-				AwayTeamID:    match.Away.TeamID,
-				HomeProjected: match.Home.TotalProjectedPointsLive,
-				AwayProjected: match.Away.TotalProjectedPointsLive,
-			})
-		}
-	}
+		homeScore, homeProjected := getScoreAndProjected(match.Home)
+		awayScore, awayProjected := getScoreAndProjected(match.Away)
 
+		matchup := models.Matchup{
+			MatchID:       match.ID,
+			HomeTeamID:    match.Home.TeamID,
+			AwayTeamID:    match.Away.TeamID,
+			HomeScore:     homeScore,
+			AwayScore:     awayScore,
+			HomeProjected: homeProjected,
+			AwayProjected: awayProjected,
+			IsCompleted:   match.Winner != "UNDECIDED",
+		}
+
+		matchups = append(matchups, matchup)
+	}
 	return matchups, nil
+}
+
+func getScoreAndProjected(teamScore models.TeamScore) (float64, float64) {
+	score := teamScore.TotalPointsLive
+	if score == 0 {
+		score = teamScore.TotalPoints
+	}
+	projected := teamScore.TotalProjectedPointsLive
+	return math.Round(score*100) / 100, math.Round(projected*100) / 100
 }
 
 func isCurrentMatch(match models.MatchupScore, currentPeriod int) bool {

@@ -54,14 +54,10 @@ func (s *FantasyService) GetStandings() (string, error) {
 	var sb strings.Builder
 	sb.WriteString("🏆 *Current Standings*\n\n")
 	for _, team := range standings {
-		sb.WriteString(fmt.Sprintf("%d. *%s* - %d-%d-%d, %.2f PF, %.2f PA\n",
-			team.Rank,
-			team.TeamName,
-			team.Wins,
-			team.Losses,
-			team.Ties,
-			team.PointsFor,
-			team.PointsAgainst))
+		sb.WriteString(fmt.Sprintf("%d. *%s*\n", team.Rank, team.TeamName))
+		sb.WriteString(fmt.Sprintf("   Record: %d-%d-%d\n", team.Wins, team.Losses, team.Ties))
+		sb.WriteString(fmt.Sprintf("   Points For: %.2f\n", team.PointsFor))
+		sb.WriteString(fmt.Sprintf("   Points Against: %.2f\n\n", team.PointsAgainst))
 	}
 
 	return sb.String(), nil
@@ -79,15 +75,15 @@ func (s *FantasyService) GetCurrentScores() (string, error) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🏈 Current Scores (Live / Projected):\n\n")
+	sb.WriteString(fmt.Sprintf("🏈 *Week %d Current Scores*\n\n", week))
 
 	for _, score := range scores {
 		homeTeam := getTeamName(score.HomeTeamID)
 		awayTeam := getTeamName(score.AwayTeamID)
 
-		sb.WriteString(fmt.Sprintf("*%s* %.2f (%.2f) - %.2f (%.2f) *%s*\n",
-			homeTeam, score.HomeScore, score.HomeProjected,
-			score.AwayScore, score.AwayProjected, awayTeam))
+		sb.WriteString(fmt.Sprintf("*%s* vs *%s*\n", homeTeam, awayTeam))
+		sb.WriteString(fmt.Sprintf("Current: %.2f - %.2f\n", score.HomeScore, score.AwayScore))
+		sb.WriteString(fmt.Sprintf("Projected: %.2f - %.2f\n", score.HomeProjected, score.AwayProjected))
 
 		if score.IsCompleted {
 			sb.WriteString("(Final)\n")
@@ -130,20 +126,27 @@ func (s *FantasyService) WhoHas(playerName string) (string, error) {
 		return fmt.Sprintf("🔍 No player found matching '%s'.", playerName), nil
 	}
 
-	var status string
+	var sb strings.Builder
+	sb.WriteString("🔍 *Player Information*\n\n")
+	sb.WriteString(fmt.Sprintf("Name: %s\n", result.PlayerName))
+	sb.WriteString(fmt.Sprintf("Position: %s\n", result.Position))
+	sb.WriteString(fmt.Sprintf("Team: %s\n", result.ProTeam))
+
 	if result.TeamID != 0 {
-		status = fmt.Sprintf("on the roster of *%s*", result.TeamName)
+		sb.WriteString(fmt.Sprintf("Fantasy Team: %s\n", result.TeamName))
 	} else {
-		status = "a free agent"
+		sb.WriteString("Status: Free Agent\n")
 	}
+
+	sb.WriteString(fmt.Sprintf("Owned in: %.1f%% of leagues\n", result.PercentOwned))
 
 	pointsType := "Points"
 	if result.IsProjected {
 		pointsType = "Projected Points"
 	}
+	sb.WriteString(fmt.Sprintf("%s: %.2f\n", pointsType, result.Points))
 
-	return fmt.Sprintf("🔍 *Player Information*\n\n%s (%s, %s) is %s\nOwned in %.1f%% of leagues\n%s: %.2f",
-		result.PlayerName, result.Position, result.ProTeam, status, result.PercentOwned, pointsType, result.Points), nil
+	return sb.String(), nil
 }
 
 func (s *FantasyService) GetPlayersToMonitor() (string, error) {
@@ -158,7 +161,7 @@ func (s *FantasyService) GetPlayersToMonitor() (string, error) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🚑 *Players to Monitor*\n\n")
+	sb.WriteString(fmt.Sprintf("🚑 *Week %d Players to Monitor*\n\n", week))
 
 	if len(report.Teams) == 0 {
 		sb.WriteString("No players to monitor at this time.")
@@ -168,7 +171,7 @@ func (s *FantasyService) GetPlayersToMonitor() (string, error) {
 	for _, team := range report.Teams {
 		sb.WriteString(fmt.Sprintf("*%s:*\n", team.TeamName))
 		for _, player := range team.Players {
-			sb.WriteString(fmt.Sprintf("- %s %s - %s\n", player.Position, player.Name, player.InjuryStatus))
+			sb.WriteString(fmt.Sprintf("  • %s %s - %s\n", player.Position, player.Name, player.InjuryStatus))
 		}
 		sb.WriteString("\n")
 	}
@@ -365,15 +368,25 @@ func (s *FantasyService) GetMatchups() (string, error) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🏈 *Matchups*\n\n")
+	sb.WriteString(fmt.Sprintf("🏈 *Week %d Matchups*\n\n", week))
 
 	slog.Info("Matchups", "matchups", len(currentScores))
 	for _, score := range currentScores {
 		homeTeam := getTeamName(score.HomeTeamID)
 		awayTeam := getTeamName(score.AwayTeamID)
 
-		sb.WriteString(fmt.Sprintf("*%s* %.2f - %.2f *%s*\n",
-			homeTeam, score.HomeProjected, score.AwayProjected, awayTeam))
+		sb.WriteString(fmt.Sprintf("*%s* vs *%s*\n", homeTeam, awayTeam))
+		sb.WriteString(fmt.Sprintf("Projected: %.2f - %.2f\n", score.HomeProjected, score.AwayProjected))
+
+		if score.HomeScore > 0 || score.AwayScore > 0 {
+			sb.WriteString(fmt.Sprintf("Current: %.2f - %.2f", score.HomeScore, score.AwayScore))
+			if score.IsCompleted {
+				sb.WriteString(" (Final)")
+			}
+			sb.WriteString("\n")
+		}
+
+		sb.WriteString("\n")
 	}
 
 	return sb.String(), nil

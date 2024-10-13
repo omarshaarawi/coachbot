@@ -44,6 +44,8 @@ func (t *TelegramBot) Start(ctx context.Context) error {
 				continue
 			}
 
+			slog.Info("Chat ID", "chatID", t.chatID)
+
 			if update.Message.IsCommand() {
 				msg := t.handler.HandleCommand(update)
 				if _, err := t.bot.Send(msg); err != nil {
