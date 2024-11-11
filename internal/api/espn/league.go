@@ -359,6 +359,7 @@ func isPlayerToMonitor(status string) bool {
 
 func (a *API) GetTeamRoster(teamName string, week int) (models.TeamRoster, error) {
 	var leagueResponse models.LeagueResponse
+	var scoreboardResponse models.ScoreboardResponse
 	endpoint := fmt.Sprintf("/seasons/%s/segments/0/leagues/%s", a.client.Config.Year, a.client.Config.LeagueID)
 	params := map[string]string{
 		"view":            "mRoster",
@@ -367,6 +368,27 @@ func (a *API) GetTeamRoster(teamName string, week int) (models.TeamRoster, error
 
 	if err := a.client.Get(endpoint, params, nil, &leagueResponse); err != nil {
 		return models.TeamRoster{}, fmt.Errorf("fetching league rosters: %w", err)
+	}
+
+	filters := map[string]interface{}{
+		"schedule": map[string]interface{}{
+			"filterMatchupPeriodIds": map[string]interface{}{
+				"value": []int{week},
+			},
+		},
+	}
+
+	filtersJSON, err := json.Marshal(filters)
+	if err != nil {
+		return models.TeamRoster{}, fmt.Errorf("error marshalling filters: %w", err)
+	}
+
+	headers := map[string]string{
+		"x-fantasy-filter": string(filtersJSON),
+	}
+
+	if err := a.client.Get(endpoint, map[string]string{"view": "mScoreboard"}, headers, &scoreboardResponse); err != nil {
+		return models.TeamRoster{}, fmt.Errorf("fetching scoreboard: %w", err)
 	}
 
 	var bestMatch *models.Team
@@ -394,18 +416,73 @@ func (a *API) GetTeamRoster(teamName string, week int) (models.TeamRoster, error
 		Players:  make([]models.RosterPlayer, 0),
 	}
 
+	var starters []models.RosterPlayer
+	var bench []models.RosterPlayer
+
+	byeWeeks, err := a.GetProSchedule()
+	if err != nil {
+		return models.TeamRoster{}, fmt.Errorf("fetching pro schedule: %w", err)
+	}
+
 	for _, entry := range bestMatch.Roster.Entries {
 		player := entry.PlayerPoolEntry.Player
 		points, _ := getPlayerPoints(entry.PlayerPoolEntry, week)
 
-		rosterPlayer := models.RosterPlayer{
-			Name:      player.FullName,
-			Position:  getPositionString(player.DefaultPositionID),
-			Points:    points,
-			IsStarter: isStartingLineup(entry.LineupSlotID),
+		pointsDisplay := "TBD"
+		if entry.LineupSlotID == 21 || player.InjuryStatus == "INJURY_RESERVE" {
+			pointsDisplay = "IR"
+		} else if byeWeek, ok := byeWeeks[player.ProTeamID]; ok && byeWeek == week {
+			pointsDisplay = "BYE"
+		} else {
+			hasActualStats := false
+
+			for _, stat := range player.Stats {
+				if stat.ScoringPeriodID == week {
+					if stat.StatSourceID == 0 {
+						hasActualStats = true
+						pointsDisplay = fmt.Sprintf("%.2f", stat.AppliedTotal)
+						break
+					}
+				}
+			}
+
+			if !hasActualStats {
+				pointsDisplay = "TBD"
+			}
 		}
-		roster.Players = append(roster.Players, rosterPlayer)
+
+		rosterPlayer := models.RosterPlayer{
+			Name:         player.FullName,
+			Position:     getPositionString(player.DefaultPositionID),
+			Points:       points,
+			PointsLabel:  pointsDisplay,
+			IsStarter:    isStartingLineup(entry.LineupSlotID),
+			LineupSlot:   getLineupSlotString(entry.LineupSlotID),
+			InjuryStatus: player.InjuryStatus,
+		}
+
+		if isStartingLineup(entry.LineupSlotID) {
+			starters = append(starters, rosterPlayer)
+		} else {
+			bench = append(bench, rosterPlayer)
+		}
 	}
+
+	sort.Slice(starters, func(i, j int) bool {
+		order := map[string]int{
+			"QB":   1,
+			"RB":   2,
+			"WR":   3,
+			"TE":   4,
+			"FLEX": 5,
+			"D/ST": 6,
+			"K":    7,
+		}
+		return order[starters[i].Position] < order[starters[j].Position]
+	})
+
+	roster.Players = append(roster.Players, starters...)
+	roster.Players = append(roster.Players, bench...)
 
 	return roster, nil
 }
@@ -433,4 +510,37 @@ func getLineupSlotString(slotID int) string {
 	default:
 		return "Unknown"
 	}
+}
+
+type ProTeamInfo struct {
+	ID      int    `json:"id"`
+	Abbrev  string `json:"abbrev"`
+	ByeWeek int    `json:"byeWeek"`
+	Name    string `json:"name"`
+}
+
+func (a *API) GetProSchedule() (map[int]int, error) {
+	var scheduleResponse struct {
+		Settings struct {
+			ProTeams []ProTeamInfo `json:"proTeams"`
+		} `json:"settings"`
+	}
+
+	endpoint := fmt.Sprintf("/seasons/%s", a.client.Config.Year)
+	params := map[string]string{
+		"view": "proTeamSchedules_wl",
+	}
+
+	if err := a.client.Get(endpoint, params, nil, &scheduleResponse); err != nil {
+		return nil, fmt.Errorf("fetching pro schedule: %w", err)
+	}
+
+	byeWeeks := make(map[int]int)
+	for _, team := range scheduleResponse.Settings.ProTeams {
+		if team.ByeWeek > 0 {
+			byeWeeks[team.ID] = team.ByeWeek
+		}
+	}
+
+	return byeWeeks, nil
 }

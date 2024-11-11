@@ -215,27 +215,59 @@ func (s *FantasyService) GetTeamRoster(teamName string) (string, error) {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("📋 *%s's Roster*\n\n", roster.TeamName))
 
-	// First list starters
 	sb.WriteString("*Starting Lineup:*\n")
 	for _, player := range roster.Players {
 		if player.IsStarter {
-			points := "TBD"
-			if player.Points > 0 {
-				points = fmt.Sprintf("%.2f", player.Points)
+			pointsStr := player.PointsLabel
+			if pointsStr != "IR" && pointsStr != "BYE" {
+				pointsStr += " pts"
 			}
-			sb.WriteString(fmt.Sprintf("▫️ %s %s - %s pts\n", player.Position, player.Name, points))
+
+			injuryStr := ""
+			if player.InjuryStatus != "" &&
+				player.InjuryStatus != "ACTIVE" &&
+				player.InjuryStatus != "INJURY_RESERVE" {
+				statusAbbr := map[string]string{
+					"QUESTIONABLE": "Q",
+					"DOUBTFUL":     "D",
+					"OUT":          "O",
+				}[player.InjuryStatus]
+				injuryStr = fmt.Sprintf(" (%s)", statusAbbr)
+			}
+
+			sb.WriteString(fmt.Sprintf("▫️ %s %s%s - %s\n",
+				player.Position,
+				player.Name,
+				injuryStr,
+				pointsStr))
 		}
 	}
 
-	// Then list bench
 	sb.WriteString("\n*Bench:*\n")
 	for _, player := range roster.Players {
 		if !player.IsStarter {
-			points := "TBD"
-			if player.Points > 0 {
-				points = fmt.Sprintf("%.2f", player.Points)
+			pointsStr := player.PointsLabel
+			if pointsStr != "IR" && pointsStr != "BYE" {
+				pointsStr += " pts"
 			}
-			sb.WriteString(fmt.Sprintf("▫️ %s %s - %s pts\n", player.Position, player.Name, points))
+
+			injuryStr := ""
+			if player.InjuryStatus != "" &&
+				player.InjuryStatus != "ACTIVE" &&
+				player.InjuryStatus != "INJURY_RESERVE" {
+				statusAbbr := map[string]string{
+					"QUESTIONABLE": "Q",
+					"DOUBTFUL":     "D",
+					"OUT":          "O",
+				}[player.InjuryStatus]
+				injuryStr = fmt.Sprintf(" (%s)", statusAbbr)
+			}
+
+			sb.WriteString(fmt.Sprintf("▫️ %s %s%s - %s\n",
+				player.Position,
+				player.Name,
+				injuryStr,
+				pointsStr))
 		}
 	}
 

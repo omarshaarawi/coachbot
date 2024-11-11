@@ -89,10 +89,13 @@ type CloseGame struct {
 }
 
 type RosterPlayer struct {
-	Name      string
-	Position  string
-	Points    float64
-	IsStarter bool
+	Name         string
+	Position     string
+	Points       float64
+	PointsLabel  string
+	IsStarter    bool
+	LineupSlot   string
+	InjuryStatus string
 }
 
 type TeamRoster struct {
