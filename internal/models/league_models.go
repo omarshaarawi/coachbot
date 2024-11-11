@@ -38,6 +38,7 @@ type WhoHasResult struct {
 	ProTeam      string
 	Points       float64
 	IsProjected  bool
+	LineupSlot   string
 }
 
 type PlayerToMonitor struct {
@@ -85,4 +86,16 @@ type CloseGame struct {
 	HomeScore float64
 	AwayScore float64
 	Margin    float64
+}
+
+type RosterPlayer struct {
+	Name      string
+	Position  string
+	Points    float64
+	IsStarter bool
+}
+
+type TeamRoster struct {
+	TeamName string
+	Players  []RosterPlayer
 }

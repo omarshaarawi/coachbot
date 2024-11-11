@@ -147,62 +147,43 @@ func getScoreAndProjected(teamScore models.TeamScore) (float64, float64) {
 	return math.Round(score*100) / 100, math.Round(projected*100) / 100
 }
 
-func isCurrentMatch(match models.MatchupScore, currentPeriod int) bool {
-	if len(match.Home.RosterForCurrentScoringPeriod.Entries) > 0 {
-		playerStats := match.Home.RosterForCurrentScoringPeriod.Entries[0].PlayerPoolEntry.Player.Stats
-		for _, stat := range playerStats {
-			if stat.ScoringPeriodID == currentPeriod && stat.StatSourceID == 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
+// func isCurrentMatch(match models.MatchupScore, currentPeriod int) bool {
+// 	if len(match.Home.RosterForCurrentScoringPeriod.Entries) > 0 {
+// 		playerStats := match.Home.RosterForCurrentScoringPeriod.Entries[0].PlayerPoolEntry.Player.Stats
+// 		for _, stat := range playerStats {
+// 			if stat.ScoringPeriodID == currentPeriod && stat.StatSourceID == 0 {
+// 				return true
+// 			}
+// 		}
+// 	}
+// 	return false
+// }
 
 func (a *API) WhoHas(playerName string, week int) (models.WhoHasResult, error) {
-	var playerCardResp models.PlayerCardResponse
+	var leagueResponse models.LeagueResponse
 	endpoint := fmt.Sprintf("/seasons/%s/segments/0/leagues/%s", a.client.Config.Year, a.client.Config.LeagueID)
 	params := map[string]string{
-		"view":            "kona_playercard",
+		"view":            "mRoster",
 		"scoringPeriodId": fmt.Sprintf("%d", week),
 	}
 
-	filters := map[string]interface{}{
-		"players": map[string]interface{}{
-			"limit": 1000,
-			"sortPercOwned": map[string]interface{}{
-				"sortPriority": 1,
-				"sortAsc":      false,
-			},
-			"sortDraftRanks": map[string]interface{}{
-				"sortPriority": 100,
-				"sortAsc":      true,
-				"value":        "STANDARD",
-			},
-		},
+	if err := a.client.Get(endpoint, params, nil, &leagueResponse); err != nil {
+		return models.WhoHasResult{}, fmt.Errorf("fetching league rosters: %w", err)
 	}
 
-	filtersJSON, err := json.Marshal(filters)
-	if err != nil {
-		return models.WhoHasResult{}, fmt.Errorf("error marshalling filters: %w", err)
+	var allPlayers []models.PlayerPoolEntry
+	for _, team := range leagueResponse.Teams {
+		for _, entry := range team.Roster.Entries {
+			allPlayers = append(allPlayers, entry.PlayerPoolEntry)
+		}
 	}
 
-	headers := map[string]string{
-		"x-fantasy-filter": string(filtersJSON),
-	}
-
-	if err := a.client.Get(endpoint, params, headers, &playerCardResp); err != nil {
-		return models.WhoHasResult{}, fmt.Errorf("fetching player info: %w", err)
-	}
-
-	lowerPlayerName := strings.ToLower(playerName)
-	result := searchPlayers(playerCardResp.Players, lowerPlayerName, week)
-
-	return result, nil
+	return searchPlayers(leagueResponse.Teams, allPlayers, playerName, week), nil
 }
 
-func searchPlayers(players []models.PlayerPoolEntry, playerName string, week int) models.WhoHasResult {
+func searchPlayers(teams []models.Team, players []models.PlayerPoolEntry, playerName string, week int) models.WhoHasResult {
 	var bestMatch *models.PlayerPoolEntry
+	var bestMatchEntry *models.RosterEntry
 	bestScore := -1
 	threshold := 0.7
 
@@ -215,12 +196,30 @@ func searchPlayers(players []models.PlayerPoolEntry, playerName string, week int
 		if similarity > threshold && (bestScore == -1 || similarity > float64(bestScore)) {
 			bestScore = int(similarity * 100)
 			bestMatch = &players[i]
+
+			// Find the roster entry for this player
+			for _, team := range teams {
+				for _, entry := range team.Roster.Entries {
+					if entry.PlayerPoolEntry.ID == bestMatch.ID {
+						bestMatchEntry = &entry
+						break
+					}
+				}
+				if bestMatchEntry != nil {
+					break
+				}
+			}
 		}
 	}
 
 	if bestMatch != nil {
 		teamName := getTeamName(bestMatch.OnTeamID)
 		points, isProjected := getPlayerPoints(*bestMatch, week)
+
+		lineupSlot := "Unknown"
+		if bestMatchEntry != nil {
+			lineupSlot = getLineupSlotString(bestMatchEntry.LineupSlotID)
+		}
 
 		return models.WhoHasResult{
 			PlayerName:   bestMatch.Player.FullName,
@@ -232,6 +231,7 @@ func searchPlayers(players []models.PlayerPoolEntry, playerName string, week int
 			ProTeam:      getProTeamString(bestMatch.Player.ProTeamID),
 			Points:       points,
 			IsProjected:  isProjected,
+			LineupSlot:   lineupSlot,
 		}
 	}
 
@@ -355,4 +355,82 @@ func isStartingLineup(slotID int) bool {
 
 func isPlayerToMonitor(status string) bool {
 	return status == "QUESTIONABLE" || status == "DOUBTFUL" || status == "OUT"
+}
+
+func (a *API) GetTeamRoster(teamName string, week int) (models.TeamRoster, error) {
+	var leagueResponse models.LeagueResponse
+	endpoint := fmt.Sprintf("/seasons/%s/segments/0/leagues/%s", a.client.Config.Year, a.client.Config.LeagueID)
+	params := map[string]string{
+		"view":            "mRoster",
+		"scoringPeriodId": fmt.Sprintf("%d", week),
+	}
+
+	if err := a.client.Get(endpoint, params, nil, &leagueResponse); err != nil {
+		return models.TeamRoster{}, fmt.Errorf("fetching league rosters: %w", err)
+	}
+
+	var bestMatch *models.Team
+	bestScore := -1
+	threshold := 0.6
+
+	for i, team := range leagueResponse.Teams {
+		currentTeamName := getTeamName(team.ID)
+		distance := fuzzy.LevenshteinDistance(strings.ToLower(teamName), strings.ToLower(currentTeamName))
+		maxLen := float64(max(len(teamName), len(currentTeamName)))
+		similarity := 1 - float64(distance)/maxLen
+
+		if similarity > threshold && (bestScore == -1 || similarity > float64(bestScore)) {
+			bestScore = int(similarity * 100)
+			bestMatch = &leagueResponse.Teams[i]
+		}
+	}
+
+	if bestMatch == nil {
+		return models.TeamRoster{}, fmt.Errorf("team not found: %s", teamName)
+	}
+
+	roster := models.TeamRoster{
+		TeamName: getTeamName(bestMatch.ID),
+		Players:  make([]models.RosterPlayer, 0),
+	}
+
+	for _, entry := range bestMatch.Roster.Entries {
+		player := entry.PlayerPoolEntry.Player
+		points, _ := getPlayerPoints(entry.PlayerPoolEntry, week)
+
+		rosterPlayer := models.RosterPlayer{
+			Name:      player.FullName,
+			Position:  getPositionString(player.DefaultPositionID),
+			Points:    points,
+			IsStarter: isStartingLineup(entry.LineupSlotID),
+		}
+		roster.Players = append(roster.Players, rosterPlayer)
+	}
+
+	return roster, nil
+}
+
+func getLineupSlotString(slotID int) string {
+	switch slotID {
+	case 0:
+		return "QB"
+	case 2:
+		return "RB"
+	case 4:
+		return "WR"
+	case 6:
+		return "TE"
+	case 16:
+		return "D/ST"
+	case 17:
+		return "K"
+	case 20:
+		return "Bench"
+	case 21:
+		return "IR"
+	case 23:
+		return "FLEX"
+	default:
+		return "Unknown"
+	}
 }

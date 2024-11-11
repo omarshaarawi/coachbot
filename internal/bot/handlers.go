@@ -25,7 +25,7 @@ func (h *Handler) HandleCommand(update tgbotapi.Update) tgbotapi.MessageConfig {
 	case "start":
 		msg.Text = "Welcome to CoachBot! Use /help to see available commands."
 	case "help":
-		msg.Text = "Available commands:\n/scores - Get current scores\n/standings - Get league standings\n/whohas <player> - Check which team has a player\n/monitor - Get players to monitor\n/finalscore - Get final score report\n/mondaynight - Get close games for Monday night  \n/matchup - Get matchups for this week"
+		msg.Text = "Available commands:\n/scores - Get current scores\n/standings - Get league standings\n/team <team> - View team's roster and points\n/whohas <player> - Check which team has a player\n/monitor - Get players to monitor\n/finalscore - Get final score report\n/mondaynight - Get close games for Monday night\n/matchup - Get matchups for this week"
 	case "scores":
 		h.handleScores(&msg)
 	case "standings":
@@ -40,6 +40,8 @@ func (h *Handler) HandleCommand(update tgbotapi.Update) tgbotapi.MessageConfig {
 		h.handleMondayNightGames(&msg)
 	case "matchup":
 		h.handleMatchup(&msg)
+	case "team":
+		h.handleTeam(&msg, args)
 	default:
 		msg.Text = "Unknown command. Use /help to see available commands."
 	}
@@ -111,5 +113,18 @@ func (h *Handler) handleMatchup(msg *tgbotapi.MessageConfig) {
 		msg.Text = fmt.Sprintf("Error generating matchups report: %v", err)
 	} else {
 		msg.Text = report
+	}
+}
+
+func (h *Handler) handleTeam(msg *tgbotapi.MessageConfig, args string) {
+	if args == "" {
+		msg.Text = "Please provide a team name. Usage: /team <team name>"
+		return
+	}
+	result, err := h.fantasyService.GetTeamRoster(args)
+	if err != nil {
+		msg.Text = fmt.Sprintf("Error getting team roster: %v", err)
+	} else {
+		msg.Text = result
 	}
 }

@@ -32,3 +32,7 @@ func (a *API) WhoHas(playerName string, week int) (models.WhoHasResult, error) {
 func (a *API) GetPlayersToMonitor(week int) (models.PlayersToMonitorReport, error) {
 	return a.espnAPI.GetPlayersToMonitor(week)
 }
+
+func (a *API) GetTeamRoster(teamName string, week int) (models.TeamRoster, error) {
+	return a.espnAPI.GetTeamRoster(teamName, week)
+}

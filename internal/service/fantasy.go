@@ -127,24 +127,31 @@ func (s *FantasyService) WhoHas(playerName string) (string, error) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("🔍 *Player Information*\n\n")
-	sb.WriteString(fmt.Sprintf("Name: %s\n", result.PlayerName))
-	sb.WriteString(fmt.Sprintf("Position: %s\n", result.Position))
-	sb.WriteString(fmt.Sprintf("Team: %s\n", result.ProTeam))
+	sb.WriteString(fmt.Sprintf("*%s* (%s - %s)\n", result.PlayerName, result.Position, result.ProTeam))
+	sb.WriteString("━━━━━━━━━━━━━━━━\n")
 
 	if result.TeamID != 0 {
-		sb.WriteString(fmt.Sprintf("Fantasy Team: %s\n", result.TeamName))
+		sb.WriteString(fmt.Sprintf("*%s*\n", result.TeamName))
+		if result.LineupSlot == "Bench" || result.LineupSlot == "IR" {
+			sb.WriteString(fmt.Sprintf("%s\n", result.LineupSlot))
+		} else {
+			sb.WriteString("Starting\n")
+		}
 	} else {
-		sb.WriteString("Status: Free Agent\n")
+		sb.WriteString("Free Agent\n")
 	}
 
-	sb.WriteString(fmt.Sprintf("Owned in: %.1f%% of leagues\n", result.PercentOwned))
+	pointsStr := "TBD"
+	if result.Points > 0 {
+		pointsStr = fmt.Sprintf("%.2f", result.Points)
+	}
 
-	pointsType := "Points"
+	sb.WriteString(fmt.Sprintf("\n%s pts", pointsStr))
 	if result.IsProjected {
-		pointsType = "Projected Points"
+		sb.WriteString(" (Projected)")
 	}
-	sb.WriteString(fmt.Sprintf("%s: %.2f\n", pointsType, result.Points))
+
+	sb.WriteString(fmt.Sprintf("\n%0.1f%% Rostered", result.PercentOwned))
 
 	return sb.String(), nil
 }
@@ -192,6 +199,47 @@ func (s *FantasyService) GetFinalScoreReport() (string, error) {
 
 	report := processScores(currentScores)
 	return formatFinalScoreReport(report), nil
+}
+
+func (s *FantasyService) GetTeamRoster(teamName string) (string, error) {
+	week, err := s.GetCurrentWeek()
+	if err != nil {
+		return "", fmt.Errorf("error fetching current week: %w", err)
+	}
+
+	roster, err := s.api.GetTeamRoster(teamName, week)
+	if err != nil {
+		return "", fmt.Errorf("error fetching team roster: %w", err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("📋 *%s's Roster*\n\n", roster.TeamName))
+
+	// First list starters
+	sb.WriteString("*Starting Lineup:*\n")
+	for _, player := range roster.Players {
+		if player.IsStarter {
+			points := "TBD"
+			if player.Points > 0 {
+				points = fmt.Sprintf("%.2f", player.Points)
+			}
+			sb.WriteString(fmt.Sprintf("▫️ %s %s - %s pts\n", player.Position, player.Name, points))
+		}
+	}
+
+	// Then list bench
+	sb.WriteString("\n*Bench:*\n")
+	for _, player := range roster.Players {
+		if !player.IsStarter {
+			points := "TBD"
+			if player.Points > 0 {
+				points = fmt.Sprintf("%.2f", player.Points)
+			}
+			sb.WriteString(fmt.Sprintf("▫️ %s %s - %s pts\n", player.Position, player.Name, points))
+		}
+	}
+
+	return sb.String(), nil
 }
 
 func processScores(scores []models.Matchup) models.FinalScoreReport {
