@@ -32,3 +32,5 @@ bin/
 
 # kamal
 .kamal/secrets*
+
+/vendor
