@@ -285,7 +285,7 @@ func getProTeamString(proTeamID int) string {
 func getTeamName(teamID int) string {
 	teams := map[int]string{
 		2: "Coach Dad",
-		3: "Megatron's Ghurl",
+		3: "Stairway to Evans",
 		6: "Team InvincibleVince",
 		5: "Beyond Cursed",
 		1: "I Weigh Less Than Omar",

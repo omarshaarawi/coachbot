@@ -96,7 +96,7 @@ func (s *FantasyService) GetCurrentScores() (string, error) {
 
 var teamIDToName = map[int]string{
 	2: "Coach Dad",
-	3: "Megatron's Ghurl",
+	3: "Stairway to Evans",
 	6: "Team InvincibleVince",
 	5: "Beyond Cursed",
 	1: "I Weigh Less Than Omar",
