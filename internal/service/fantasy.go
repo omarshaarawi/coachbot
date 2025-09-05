@@ -141,14 +141,15 @@ func (s *FantasyService) WhoHas(playerName string) (string, error) {
 		sb.WriteString("Free Agent\n")
 	}
 
-	pointsStr := "TBD"
-	if result.Points > 0 {
+	var pointsStr string
+	if !result.IsProjected {
 		pointsStr = fmt.Sprintf("%.2f", result.Points)
-	}
-
-	sb.WriteString(fmt.Sprintf("\n%s pts", pointsStr))
-	if result.IsProjected {
-		sb.WriteString(" (Projected)")
+		sb.WriteString(fmt.Sprintf("\n%s pts (Actual)", pointsStr))
+	} else if result.Points > 0 {
+		pointsStr = fmt.Sprintf("%.2f", result.Points)
+		sb.WriteString(fmt.Sprintf("\n%s pts (Projected)", pointsStr))
+	} else {
+		sb.WriteString("\nTBD pts")
 	}
 
 	sb.WriteString(fmt.Sprintf("\n%0.1f%% Rostered", result.PercentOwned))

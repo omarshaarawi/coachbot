@@ -182,39 +182,94 @@ func (a *API) WhoHas(playerName string, week int) (models.WhoHasResult, error) {
 }
 
 func searchPlayers(teams []models.Team, players []models.PlayerPoolEntry, playerName string, week int) models.WhoHasResult {
-	var bestMatch *models.PlayerPoolEntry
-	var bestMatchEntry *models.RosterEntry
-	bestScore := -1
-	threshold := 0.7
+	var playerNames []string
+	for _, player := range players {
+		playerNames = append(playerNames, player.Player.FullName)
+	}
 
-	for i, player := range players {
-		fullName := strings.ToLower(player.Player.FullName)
-		distance := fuzzy.LevenshteinDistance(strings.ToLower(playerName), fullName)
-		maxLen := float64(max(len(playerName), len(fullName)))
-		similarity := 1 - float64(distance)/maxLen
+	matches := fuzzy.FindFold(playerName, playerNames)
 
-		if similarity > threshold && (bestScore == -1 || similarity > float64(bestScore)) {
-			bestScore = int(similarity * 100)
-			bestMatch = &players[i]
+	if len(matches) == 0 {
+		matches = fuzzy.Find(playerName, playerNames)
+	}
 
-			// Find the roster entry for this player
-			for _, team := range teams {
-				for _, entry := range team.Roster.Entries {
-					if entry.PlayerPoolEntry.ID == bestMatch.ID {
-						bestMatchEntry = &entry
-						break
-					}
-				}
-				if bestMatchEntry != nil {
-					break
-				}
+	if len(matches) == 0 {
+		ranked := fuzzy.RankFindFold(playerName, playerNames)
+		if len(ranked) > 0 {
+			matches = append(matches, ranked[0].Target)
+		}
+	}
+
+	if len(matches) == 0 {
+		lowerSearch := strings.ToLower(playerName)
+		for _, name := range playerNames {
+			lowerName := strings.ToLower(name)
+			if strings.Contains(lowerName, lowerSearch) {
+				matches = append(matches, name)
+				break
 			}
 		}
 	}
 
-	if bestMatch != nil {
-		teamName := getTeamName(bestMatch.OnTeamID)
-		points, isProjected := getPlayerPoints(*bestMatch, week)
+	if len(matches) == 0 {
+		lowerSearch := strings.ToLower(playerName)
+		searchWords := strings.Fields(lowerSearch)
+		
+		for _, name := range playerNames {
+			lowerName := strings.ToLower(name)
+			nameWords := strings.Fields(lowerName)
+			
+			for _, searchWord := range searchWords {
+				for _, nameWord := range nameWords {
+					if len(searchWord) >= 3 && strings.Contains(nameWord, searchWord) {
+						matches = append(matches, name)
+						break
+					}
+					if len(nameWord) >= 3 && strings.Contains(searchWord, nameWord) {
+						matches = append(matches, name)
+						break
+					}
+				}
+				if len(matches) > 0 {
+					break
+				}
+			}
+			if len(matches) > 0 {
+				break
+			}
+		}
+	}
+
+	if len(matches) > 0 {
+		matchedName := matches[0]
+		
+		var matchedPlayer *models.PlayerPoolEntry
+		for i, player := range players {
+			if player.Player.FullName == matchedName {
+				matchedPlayer = &players[i]
+				break
+			}
+		}
+
+		if matchedPlayer == nil {
+			return models.WhoHasResult{PlayerName: playerName, Found: false}
+		}
+
+		var bestMatchEntry *models.RosterEntry
+		for _, team := range teams {
+			for _, entry := range team.Roster.Entries {
+				if entry.PlayerPoolEntry.ID == matchedPlayer.ID {
+					bestMatchEntry = &entry
+					break
+				}
+			}
+			if bestMatchEntry != nil {
+				break
+			}
+		}
+
+		teamName := getTeamName(matchedPlayer.OnTeamID)
+		points, isProjected := getPlayerPoints(*matchedPlayer, week)
 
 		lineupSlot := "Unknown"
 		if bestMatchEntry != nil {
@@ -222,13 +277,13 @@ func searchPlayers(teams []models.Team, players []models.PlayerPoolEntry, player
 		}
 
 		return models.WhoHasResult{
-			PlayerName:   bestMatch.Player.FullName,
+			PlayerName:   matchedPlayer.Player.FullName,
 			TeamName:     teamName,
-			TeamID:       bestMatch.OnTeamID,
+			TeamID:       matchedPlayer.OnTeamID,
 			Found:        true,
-			PercentOwned: bestMatch.Player.Ownership.PercentOwned,
-			Position:     getPositionString(bestMatch.Player.DefaultPositionID),
-			ProTeam:      getProTeamString(bestMatch.Player.ProTeamID),
+			PercentOwned: matchedPlayer.Player.Ownership.PercentOwned,
+			Position:     getPositionString(matchedPlayer.Player.DefaultPositionID),
+			ProTeam:      getProTeamString(matchedPlayer.Player.ProTeamID),
 			Points:       points,
 			IsProjected:  isProjected,
 			LineupSlot:   lineupSlot,
@@ -244,14 +299,25 @@ func searchPlayers(teams []models.Team, players []models.PlayerPoolEntry, player
 func getPlayerPoints(player models.PlayerPoolEntry, week int) (float64, bool) {
 	currentScoringPeriod := week
 
+	var realScore, projectedScore float64
+	var hasRealScore, hasProjectedScore bool
+
 	for _, stat := range player.Player.Stats {
 		if stat.ScoringPeriodID == currentScoringPeriod {
 			if stat.StatSourceID == 0 {
-				return stat.AppliedTotal, false
+				realScore = stat.AppliedTotal
+				hasRealScore = true
 			} else if stat.StatSourceID == 1 {
-				return stat.AppliedTotal, true
+				projectedScore = stat.AppliedTotal
+				hasProjectedScore = true
 			}
 		}
+	}
+
+	if hasRealScore {
+		return realScore, false
+	} else if hasProjectedScore {
+		return projectedScore, true
 	}
 
 	return player.AppliedStatTotal, true
