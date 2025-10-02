@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/omarshaarawi/coachbot/internal/service"
@@ -17,7 +18,7 @@ func NewHandler(fantasyService *service.FantasyService) *Handler {
 
 func (h *Handler) HandleCommand(update tgbotapi.Update) tgbotapi.MessageConfig {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-	command := update.Message.Command()
+	command := strings.ToLower(update.Message.Command())
 	args := update.Message.CommandArguments()
 	msg.ParseMode = "Markdown"
 
