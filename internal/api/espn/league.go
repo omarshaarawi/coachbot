@@ -178,7 +178,54 @@ func (a *API) WhoHas(playerName string, week int) (models.WhoHasResult, error) {
 		}
 	}
 
-	return searchPlayers(leagueResponse.Teams, allPlayers, playerName, week), nil
+	result := searchPlayers(leagueResponse.Teams, allPlayers, playerName, week)
+
+	if !result.Found {
+		freeAgentResult, err := a.searchFreeAgents(playerName, week)
+		if err == nil && freeAgentResult.Found {
+			return freeAgentResult, nil
+		}
+	}
+
+	return result, nil
+}
+
+func (a *API) searchFreeAgents(playerName string, week int) (models.WhoHasResult, error) {
+	endpoint := fmt.Sprintf("/seasons/%s/segments/0/leagues/%s", a.client.Config.Year, a.client.Config.LeagueID)
+
+	params := map[string]string{
+		"view":            "kona_player_info",
+		"scoringPeriodId": fmt.Sprintf("%d", week),
+	}
+
+	filters := map[string]interface{}{
+		"players": map[string]interface{}{
+			"offset": 0,
+		},
+	}
+
+	filtersJSON, err := json.Marshal(filters)
+	if err != nil {
+		return models.WhoHasResult{}, fmt.Errorf("error marshalling filters: %w", err)
+	}
+
+	headers := map[string]string{
+		"x-fantasy-filter": string(filtersJSON),
+	}
+
+	var response models.PlayerCardResponse
+	if err := a.client.Get(endpoint, params, headers, &response); err != nil {
+		return models.WhoHasResult{}, fmt.Errorf("fetching free agents: %w", err)
+	}
+
+	var freeAgents []models.PlayerPoolEntry
+	for _, player := range response.Players {
+		if player.OnTeamID == 0 {
+			freeAgents = append(freeAgents, player)
+		}
+	}
+
+	return searchPlayers(nil, freeAgents, playerName, week), nil
 }
 
 func searchPlayers(teams []models.Team, players []models.PlayerPoolEntry, playerName string, week int) models.WhoHasResult {
